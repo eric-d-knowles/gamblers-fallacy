@@ -48,7 +48,7 @@
     border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px;
   }
   .stat .label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 500; }
-  .stat .value { font-family: var(--font-num); font-size: clamp(28px, 5vw, 48px); font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .value { font-family: var(--font-num); font-size: clamp(24px, 3.6vw, 40px); font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: clip; }
   .stat .sub { font-family: var(--font-num); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .stat.streak .value.h { color: var(--heads); }
   .stat.streak .value.t { color: var(--tails); }
@@ -81,13 +81,13 @@
   .hint { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
   .hint kbd { border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
   /* Presentation mode: hide the toolbar, enlarge everything, keyboard drives it. */
-  body.present { gap: 24px; padding-block: 28px; }
+  body.present { gap: 18px; padding-block: 22px; }
   body.present .controls { display: none; }
-  body.present .stat .value { font-size: clamp(40px, 7.5vw, 96px); }
-  body.present .stat .label { font-size: clamp(13px, 1.6vw, 20px); }
-  body.present .stat .sub { font-size: clamp(14px, 1.8vw, 22px); }
-  body.present .coin { width: clamp(92px, 12vw, 150px); }
-  body.present .coin .face { width: clamp(64px, 9vw, 110px); height: clamp(64px, 9vw, 110px); font-size: clamp(26px, 4vw, 48px); }
+  body.present .stat .value { font-size: clamp(28px, 3.8vw, 52px); }
+  body.present .stat .label { font-size: clamp(12px, 1.1vw, 15px); }
+  body.present .stat .sub { font-size: clamp(13px, 1.2vw, 17px); }
+  body.present .coin { width: clamp(92px, 9vw, 120px); }
+  body.present .coin .face { width: clamp(64px, 6.5vw, 86px); height: clamp(64px, 6.5vw, 86px); font-size: clamp(26px, 3vw, 38px); }
   .presentbar { display: none; position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); gap: 14px; align-items: center; opacity: .55; }
   .presentbar:hover { opacity: 1; }
   body.present .presentbar { display: flex; }
@@ -99,7 +99,7 @@
   <div class="stat"><div class="label">Flips</div><div class="value" id="n">0</div><div class="sub" id="hcount">heads 0 · tails 0</div></div>
   <div class="stat streak"><div class="label">Current streak</div><div class="value" id="streak">—</div><div class="sub" id="streaksub">&nbsp;</div></div>
   <div class="stat"><div class="label">Longest runs</div><div class="value" id="longest">0 / 0</div><div class="sub">heads / tails</div></div>
-  <div class="stat next"><div class="label">After such a streak, it continued</div><div class="value" id="next">—</div><div class="sub" id="nextsub">no streak yet</div></div>
+  <div class="stat next"><div class="label">Streak continued on next flip</div><div class="value" id="next">—</div><div class="sub" id="nextsub">no streak yet</div></div>
 </div>
 
 <div class="plot"><canvas id="c"></canvas></div>
