@@ -203,7 +203,7 @@
     ctx.clearRect(0, 0, W, H);
 
     const mode = $('mode').value, zoom = $('zoom').checked, logx = $('logx').checked;
-    const m = { l: 52, r: 18, t: 22, b: 34 };
+    const m = { l: 72, r: 18, t: 22, b: 46 };
     const pw = W - m.l - m.r, ph = H - m.t - m.b;
     const N = Math.max(n, 10);
 
@@ -227,9 +227,12 @@
     else { const step = niceStep(N / 6); for (let v = step; v <= N; v += step) ticks.push(v); if (!ticks.length) ticks.push(N); }
     ctx.strokeStyle = css('--line');
     ticks.forEach(v => { const x = xOf(v); ctx.beginPath(); ctx.moveTo(x, m.t + ph); ctx.lineTo(x, m.t + ph + 4); ctx.stroke(); ctx.fillText(v.toLocaleString(), x, m.t + ph + 8); });
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText('flips →', m.l, 4);
     ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, m.t + ph); ctx.lineTo(W - m.r, m.t + ph); ctx.stroke();
+    // axis titles
+    ctx.fillStyle = css('--muted'); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('number of flips', m.l + pw / 2, H - 6);
+    ctx.save(); ctx.translate(14, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'top';
+    ctx.fillText((mode === 'cond' ? '% of next flips that continued the streak' : 'longest run so far'), 0, 0); ctx.restore();
 
     const stride = pts => Math.max(1, Math.floor(pts.length / (pw * 2)));
 
@@ -240,8 +243,8 @@
       ctx.fillText('no memory: 50%', W - m.r - 4, yOf(50) - 3);
       // legend
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      let lx = m.l + 60;
-      ctx.fillStyle = css('--muted'); ctx.fillText('after a streak of', lx, 4); lx += ctx.measureText('after a streak of').width + 10;
+      let lx = m.l + 4;
+      ctx.fillStyle = css('--muted'); ctx.fillText('streak length:', lx, 4); lx += ctx.measureText('streak length:').width + 10;
       for (let b = 0; b < K; b++) {
         const label = (b === K - 1 ? K + '+' : b + 1), col = css('--s' + (b + 1));
         ctx.fillStyle = col; ctx.fillRect(lx, 9, 16, 3); lx += 20;
@@ -270,7 +273,7 @@
       ctx.fillStyle = css('--target'); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
       ctx.fillText('≈ log₂(flips)', W - m.r - 4, yOf(Math.log2(N)) - 3);
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      let lx = m.l + 60; ctx.fillStyle = css('--muted'); ctx.fillText('longest run of', lx, 4); lx += ctx.measureText('longest run of').width + 10;
+      let lx = m.l + 4; ctx.fillStyle = css('--muted'); ctx.fillText('longest run of', lx, 4); lx += ctx.measureText('longest run of').width + 10;
       [['heads', '--heads'], ['tails', '--tails']].forEach(([lab, v]) => { ctx.fillStyle = css(v); ctx.fillRect(lx, 9, 16, 3); lx += 20; ctx.fillStyle = css('--fg'); ctx.fillText(lab, lx, 4); lx += ctx.measureText(lab).width + 14; });
       if (runTrace.length) {
         ctx.lineWidth = 2; ctx.lineJoin = 'round';
