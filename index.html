@@ -1,0 +1,336 @@
+<title>Gambler's Fallacy Coin Flips</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a one-screen lecture panel; stat strip on top, plot fills the rest, controls pinned below. */
+  :root {
+    --bg: #f7f8fb;
+    --panel: #ffffff;
+    --fg: #16203a;
+    --muted: #5d6b8a;
+    --line: #d9deea;
+    --grid: #e8ebf3;
+    --accent: #1f4fd8;
+    --target: #c0392b;      /* the 50% reference */
+    --heads: #d99a1e;
+    --tails: #7a8699;
+    /* one line per streak length */
+    --s1: #8fa8ee; --s2: #5f82e4; --s3: #2f5ad8; --s4: #1a3fb0; --s5: #0d2a7c;
+    --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1422; --panel: #171d2f; --fg: #e8ecf7; --muted: #9aa6c4;
+      --line: #2a3350; --grid: #212a44; --accent: #6b93ff; --target: #ff6b5a;
+      --heads: #f0b23b; --tails: #8e9ab3;
+      --s1: #4f6fc4; --s2: #6b8cf0; --s3: #8aa6ff; --s4: #aabfff; --s5: #d6e0ff; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1422; --panel: #171d2f; --fg: #e8ecf7; --muted: #9aa6c4;
+    --line: #2a3350; --grid: #212a44; --accent: #6b93ff; --target: #ff6b5a;
+    --heads: #f0b23b; --tails: #8e9ab3;
+    --s1: #4f6fc4; --s2: #6b8cf0; --s3: #8aa6ff; --s4: #aabfff; --s5: #d6e0ff; color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--font-ui);
+    display: flex; flex-direction: column; gap: 14px;
+    padding-block: 16px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+  }
+  .stats { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .stat {
+    flex: 1 1 150px; min-width: 0; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat .label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 500; }
+  .stat .value { font-family: var(--font-num); font-size: clamp(28px, 5vw, 48px); font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .sub { font-family: var(--font-num); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stat.streak .value.h { color: var(--heads); }
+  .stat.streak .value.t { color: var(--tails); }
+  .stat.next .value { color: var(--accent); }
+  .coin {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    width: 92px; min-height: 92px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
+  }
+  .coin .face {
+    width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    font-family: var(--font-num); font-weight: 500; font-size: 26px; color: #fff;
+    background: var(--tails); transition: transform .18s ease;
+  }
+  .coin .face.heads { background: var(--heads); }
+  .coin .face.flip { transform: rotateY(180deg); }
+  .plot { flex: 1 1 auto; min-height: 220px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; position: relative; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button {
+    font: 500 15px var(--font-ui); color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 16px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { filter: brightness(1.08); }
+  .spacer { flex: 1 1 auto; }
+  label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+  select { font: 14px var(--font-ui); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .hint { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
+  .hint kbd { border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  /* Presentation mode: hide the toolbar, enlarge everything, keyboard drives it. */
+  body.present { gap: 24px; padding-block: 28px; }
+  body.present .controls { display: none; }
+  body.present .stat .value { font-size: clamp(40px, 7.5vw, 96px); }
+  body.present .stat .label { font-size: clamp(13px, 1.6vw, 20px); }
+  body.present .stat .sub { font-size: clamp(14px, 1.8vw, 22px); }
+  body.present .coin { width: clamp(92px, 12vw, 150px); }
+  body.present .coin .face { width: clamp(64px, 9vw, 110px); height: clamp(64px, 9vw, 110px); font-size: clamp(26px, 4vw, 48px); }
+  .presentbar { display: none; position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); gap: 14px; align-items: center; opacity: .55; }
+  .presentbar:hover { opacity: 1; }
+  body.present .presentbar { display: flex; }
+  @media (prefers-reduced-motion: reduce) { .coin .face { transition: none; } }
+</style>
+
+<div class="stats">
+  <div class="coin" aria-live="polite"><div class="face" id="face">?</div></div>
+  <div class="stat"><div class="label">Flips</div><div class="value" id="n">0</div><div class="sub" id="hcount">heads 0 · tails 0</div></div>
+  <div class="stat streak"><div class="label">Current streak</div><div class="value" id="streak">—</div><div class="sub" id="streaksub">&nbsp;</div></div>
+  <div class="stat"><div class="label">Longest runs</div><div class="value" id="longest">0 / 0</div><div class="sub">heads / tails</div></div>
+  <div class="stat next"><div class="label">After such a streak, it continued</div><div class="value" id="next">—</div><div class="sub" id="nextsub">no streak yet</div></div>
+</div>
+
+<div class="plot"><canvas id="c"></canvas></div>
+
+<div class="controls">
+  <button class="primary" id="flip1">Flip once</button>
+  <button id="flip10">Flip ×10</button>
+  <button id="flip100">Flip ×100</button>
+  <button id="auto">▶ Auto</button>
+  <label class="opt">speed
+    <select id="speed">
+      <option value="1">1 flip / tick</option>
+      <option value="5" selected>5 flips / tick</option>
+      <option value="25">25 flips / tick</option>
+      <option value="100">100 flips / tick</option>
+    </select>
+  </label>
+  <span class="spacer"></span>
+  <label class="opt">plot
+    <select id="mode">
+      <option value="cond" selected>% streak continued, by streak length</option>
+      <option value="runs">longest run so far vs. flips</option>
+    </select>
+  </label>
+  <label class="opt"><input type="checkbox" id="zoom"> zoom y-axis</label>
+  <label class="opt"><input type="checkbox" id="logx"> log x-axis</label>
+  <button id="reset">Reset</button>
+  <button id="present">Present</button>
+</div>
+<div class="presentbar">
+  <span class="hint"><kbd>space</kbd> flip · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> ×10/×100/×1000 · <kbd>A</kbd> auto · <kbd>R</kbd> reset · <kbd>P</kbd> plot · <kbd>Z</kbd> zoom · <kbd>L</kbd> log · <kbd>F</kbd> fullscreen · <kbd>esc</kbd> exit</span>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const K = 5; // streak-length buckets: 1, 2, 3, 4, 5+
+  let n, heads, run, runSide, longestH, longestT, timer = null;
+  // per bucket: trials, continuations, and a trace of {x: flip index, y: % continued}
+  let cond, runTrace;
+  function init() {
+    n = 0; heads = 0; run = 0; runSide = null; longestH = 0; longestT = 0;
+    cond = Array.from({ length: K }, () => ({ trials: 0, cont: 0, trace: [] }));
+    runTrace = []; // {x, h, t}
+  }
+  init();
+
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function flipOnce() {
+    const side = Math.random() < 0.5 ? 'H' : 'T';
+    n++; if (side === 'H') heads++;
+    if (run >= 1) {
+      // the coin had just produced `run` identical outcomes; did the streak continue?
+      const b = Math.min(run, K) - 1;
+      const c = cond[b];
+      c.trials++; if (side === runSide) c.cont++;
+      c.trace.push({ x: n, y: 100 * c.cont / c.trials });
+    }
+    if (side === runSide) run++; else { run = 1; runSide = side; }
+    if (side === 'H') longestH = Math.max(longestH, run); else longestT = Math.max(longestT, run);
+    runTrace.push({ x: n, h: longestH, t: longestT });
+    return side;
+  }
+  function flip(k) {
+    let last;
+    for (let i = 0; i < k; i++) last = flipOnce();
+    const face = $('face');
+    face.textContent = last;
+    face.classList.toggle('heads', last === 'H');
+    face.classList.toggle('flip', !face.classList.contains('flip'));
+    update();
+  }
+  function update() {
+    $('n').textContent = n.toLocaleString();
+    $('hcount').textContent = 'heads ' + heads.toLocaleString() + ' · tails ' + (n - heads).toLocaleString();
+    $('longest').textContent = longestH + ' / ' + longestT;
+    const st = $('streak');
+    if (n) {
+      st.textContent = runSide + ' × ' + run;
+      st.className = 'value ' + (runSide === 'H' ? 'h' : 't');
+      $('streaksub').textContent = run >= 4 ? 'is the coin "due" for ' + (runSide === 'H' ? 'tails' : 'heads') + '?' : (runSide === 'H' ? 'heads' : 'tails') + ' in a row';
+      const c = cond[Math.min(run, K) - 1];
+      if (c.trials) {
+        $('next').textContent = (100 * c.cont / c.trials).toFixed(1) + '%';
+        $('nextsub').textContent = 'of ' + c.trials.toLocaleString() + ' streaks of ' + (run >= K ? K + '+' : run);
+      } else { $('next').textContent = '—'; $('nextsub').textContent = 'first streak of ' + (run >= K ? K + '+' : run); }
+    } else {
+      st.textContent = '—'; st.className = 'value'; $('streaksub').innerHTML = '&nbsp;';
+      $('next').textContent = '—'; $('nextsub').textContent = 'no streak yet';
+    }
+    draw();
+  }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const mode = $('mode').value, zoom = $('zoom').checked, logx = $('logx').checked;
+    const m = { l: 52, r: 18, t: 22, b: 34 };
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const N = Math.max(n, 10);
+
+    let y0, y1, ySteps;
+    if (mode === 'cond') { y0 = zoom ? 40 : 0; y1 = zoom ? 60 : 100; ySteps = 5; }
+    else { y0 = 0; y1 = Math.max(8, Math.ceil((Math.max(longestH, longestT, Math.log2(N)) + 1) / 2) * 2); ySteps = y1 / 2; }
+    const xOf = x => logx ? m.l + pw * Math.log10(Math.max(x, 1)) / Math.log10(N) : m.l + pw * (x - 1) / Math.max(N - 1, 1);
+    const yOf = v => m.t + ph * (1 - (Math.min(Math.max(v, y0), y1) - y0) / (y1 - y0));
+
+    ctx.font = '12px ' + css('--font-num');
+    ctx.fillStyle = css('--muted'); ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1;
+    for (let k = 0; k <= ySteps; k++) {
+      const v = y0 + (y1 - y0) * k / ySteps, y = yOf(v);
+      ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(W - m.r, y); ctx.stroke();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(v + (mode === 'cond' ? '%' : ''), m.l - 8, y);
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    let ticks = [];
+    if (logx) { for (let p = 1; p <= N; p *= 10) ticks.push(p); if (ticks[ticks.length - 1] !== N) ticks.push(N); }
+    else { const step = niceStep(N / 6); for (let v = step; v <= N; v += step) ticks.push(v); if (!ticks.length) ticks.push(N); }
+    ctx.strokeStyle = css('--line');
+    ticks.forEach(v => { const x = xOf(v); ctx.beginPath(); ctx.moveTo(x, m.t + ph); ctx.lineTo(x, m.t + ph + 4); ctx.stroke(); ctx.fillText(v.toLocaleString(), x, m.t + ph + 8); });
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('flips →', m.l, 4);
+    ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, m.t + ph); ctx.lineTo(W - m.r, m.t + ph); ctx.stroke();
+
+    const stride = pts => Math.max(1, Math.floor(pts.length / (pw * 2)));
+
+    if (mode === 'cond') {
+      ctx.setLineDash([6, 5]); ctx.strokeStyle = css('--target'); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(m.l, yOf(50)); ctx.lineTo(W - m.r, yOf(50)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = css('--target'); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText('no memory: 50%', W - m.r - 4, yOf(50) - 3);
+      // legend
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      let lx = m.l + 60;
+      ctx.fillStyle = css('--muted'); ctx.fillText('after a streak of', lx, 4); lx += ctx.measureText('after a streak of').width + 10;
+      for (let b = 0; b < K; b++) {
+        const label = (b === K - 1 ? K + '+' : b + 1), col = css('--s' + (b + 1));
+        ctx.fillStyle = col; ctx.fillRect(lx, 9, 16, 3); lx += 20;
+        ctx.fillStyle = cond[b].trials ? css('--fg') : css('--muted');
+        ctx.fillText(label + (cond[b].trials ? ' (' + (100 * cond[b].cont / cond[b].trials).toFixed(1) + '%)' : ''), lx, 4);
+        lx += ctx.measureText(label + ' (00.0%)').width + 12;
+      }
+      ctx.lineWidth = 2; ctx.lineJoin = 'round';
+      for (let b = 0; b < K; b++) {
+        const pts = cond[b].trace; if (!pts.length) continue;
+        ctx.strokeStyle = css('--s' + (b + 1)); ctx.beginPath();
+        const s = stride(pts);
+        for (let i = 0; i < pts.length; i += s) { const p = pts[i]; i === 0 ? ctx.moveTo(xOf(p.x), yOf(p.y)) : ctx.lineTo(xOf(p.x), yOf(p.y)); }
+        const last = pts[pts.length - 1]; ctx.lineTo(xOf(last.x), yOf(last.y)); ctx.stroke();
+        ctx.fillStyle = css('--s' + (b + 1)); ctx.beginPath(); ctx.arc(xOf(last.x), yOf(last.y), 3.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      // reference: longest run of either side grows roughly like log2(n)
+      ctx.setLineDash([6, 5]); ctx.strokeStyle = css('--target'); ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i <= 200; i++) {
+        const x = logx ? Math.pow(10, Math.log10(N) * i / 200) : 1 + (N - 1) * i / 200;
+        const y = yOf(Math.log2(Math.max(x, 1)));
+        i === 0 ? ctx.moveTo(xOf(x), y) : ctx.lineTo(xOf(x), y);
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = css('--target'); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText('≈ log₂(flips)', W - m.r - 4, yOf(Math.log2(N)) - 3);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      let lx = m.l + 60; ctx.fillStyle = css('--muted'); ctx.fillText('longest run of', lx, 4); lx += ctx.measureText('longest run of').width + 10;
+      [['heads', '--heads'], ['tails', '--tails']].forEach(([lab, v]) => { ctx.fillStyle = css(v); ctx.fillRect(lx, 9, 16, 3); lx += 20; ctx.fillStyle = css('--fg'); ctx.fillText(lab, lx, 4); lx += ctx.measureText(lab).width + 14; });
+      if (runTrace.length) {
+        ctx.lineWidth = 2; ctx.lineJoin = 'round';
+        [['h', '--heads'], ['t', '--tails']].forEach(([key, v]) => {
+          ctx.strokeStyle = css(v); ctx.beginPath();
+          const s = stride(runTrace);
+          for (let i = 0; i < runTrace.length; i += s) { const p = runTrace[i]; i === 0 ? ctx.moveTo(xOf(p.x), yOf(p[key])) : ctx.lineTo(xOf(p.x), yOf(p[key])); }
+          const last = runTrace[runTrace.length - 1]; ctx.lineTo(xOf(last.x), yOf(last[key])); ctx.stroke();
+          ctx.fillStyle = css(v); ctx.beginPath(); ctx.arc(xOf(last.x), yOf(last[key]), 3.5, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+    }
+  }
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw))); const f = raw / p;
+    return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+  }
+
+  function stopAuto() { if (timer) { clearInterval(timer); timer = null; $('auto').textContent = '▶ Auto'; } }
+  $('auto').addEventListener('click', () => {
+    if (timer) return stopAuto();
+    $('auto').textContent = '⏸ Pause';
+    timer = setInterval(() => flip(+$('speed').value), 80);
+  });
+  $('flip1').addEventListener('click', () => flip(1));
+  $('flip10').addEventListener('click', () => flip(10));
+  $('flip100').addEventListener('click', () => flip(100));
+  $('reset').addEventListener('click', () => { stopAuto(); init(); const f = $('face'); f.textContent = '?'; f.className = 'face'; update(); });
+  ['mode', 'zoom', 'logx'].forEach(id => $(id).addEventListener('change', draw));
+  new ResizeObserver(draw).observe(canvas.parentElement);
+  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+
+  // Presentation mode is the default; open with #controls to start in the editing view.
+  function setPresent(on) {
+    document.body.classList.toggle('present', on);
+    if (on) {
+      $('speed').value = '1';
+      if (document.documentElement.requestFullscreen && !document.fullscreenElement)
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    setTimeout(draw, 50);
+  }
+  $('present').addEventListener('click', () => setPresent(true));
+  if (location.hash !== '#controls') setPresent(true);
+  document.addEventListener('fullscreenchange', draw);
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+    const k = e.key.toLowerCase();
+    if (k === ' ') { e.preventDefault(); flip(1); }
+    else if (k === '1') flip(10);
+    else if (k === '2') flip(100);
+    else if (k === '3') flip(1000);
+    else if (k === 'a') $('auto').click();
+    else if (k === 'r') $('reset').click();
+    else if (k === 'p') { const m = $('mode'); m.value = m.value === 'cond' ? 'runs' : 'cond'; draw(); }
+    else if (k === 'z') { $('zoom').checked = !$('zoom').checked; draw(); }
+    else if (k === 'l') { $('logx').checked = !$('logx').checked; draw(); }
+    else if (k === 'f') { document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : document.documentElement.requestFullscreen?.().catch(() => {}); }
+    else if (k === 'escape' && document.body.classList.contains('present')) setPresent(false);
+  });
+  update();
+})();
+</script>
